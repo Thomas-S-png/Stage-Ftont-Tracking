@@ -618,7 +618,7 @@ println("Nombre de changements : ", changement)
 println("Début de la répartition")
 uniformity = 1.0
 nt=0
-#anim=Animation()
+anim=Animation()
 @time while uniformity>0.05#for t in 1:1e5
     local dt=1e-5
     global nt+=1
@@ -634,7 +634,7 @@ nt=0
      if nt % 500 == 0
         p3=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false)
         display(p3)
-        #frame(anim)
+        frame(anim)
      end
     #p3=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false)
     #display(p3)
@@ -661,7 +661,7 @@ nt=0
 end
 println("Nombre d'itérations : ", nt)
 #
-#gif(anim,"Image/Animation/Repartition/Rosenbrock.gif",fps=60)
+gif(anim,"Image/Repartition_Immobile/Animation.gif",fps=60)
 
 
 
