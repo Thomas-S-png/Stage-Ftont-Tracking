@@ -664,7 +664,7 @@ for i in 1:N
 end
 p=scatter(A[1,:],A[2,:],aspect_ratio=1,label="Marqueur")
 display(p)
-savefig(p,"Image/Ellipse_Normale/Initial.png")
+savefig(p,"Image/Advection_Normale/Initial.png")
 
 for i in 1:N
     D0[i,mod1(i+1,N)]=1
@@ -1030,19 +1030,19 @@ anim=Plots.Animation()
     if isapprox(t, 0.0)
         println("t=0")
         local p=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false, xlims=(0,1), ylims=(0,1))
-        savefig(p, "Image/Ellipse_Normale/t=0.png")
+        savefig(p, "Image/Advection_Normale/t=0.png")
     elseif isapprox(t, 0.25)
         println("t=1/4")
         local p=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false, xlims=(0,1), ylims=(0,1))
-        savefig(p, "Image/Ellipse_Normale/t=0,25.png")
+        savefig(p, "Image/Advection_Normale/t=0,25.png")
     elseif isapprox(t, 0.50)
         println("t=1/2")
         local p=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false, xlims=(0,1), ylims=(0,1))
-        savefig(p, "Image/Ellipse_Normale/t=0,5.png")
+        savefig(p, "Image/Advection_Normale/t=0,5.png")
     elseif isapprox(t, 0.75)
         println("t=3/4")
         local p=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false, xlims=(0,1), ylims=(0,1))
-        savefig(p, "Image/Ellipse_Normale/t=0,75.png")
+        savefig(p, "Image/Advection_Normale/t=0,75.png")
     end
     #
     #
@@ -1168,5 +1168,5 @@ p3=Plots.scatter(A[1,:], A[2,:],aspect_ratio=1,label="Marqueur")
         #end
 
         display(p3)
-savefig(p3,"Image/Ellipse_Normale/Final Mikula.png")
-gif(anim, "Image/Ellipse_Normale/Animation Mikula.gif")
+savefig(p3,"Image/Advection_Normale/Final Mikula.png")
+gif(anim, "Image/Advection_Normale/Animation Mikula.gif")
