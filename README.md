@@ -65,5 +65,5 @@ Julia
 
 Thomas Sobre
 
-Etudiant en Master 2 Modélisation et Simulation en Mécanique des fluides et transferts thermiques à l'Université Gustave Eiffel
+Etudiant en Master 2 Modélisation et Simulation en Mécanique des Fluides et Transferts Thermiques à l'Université Gustave Eiffel
 
