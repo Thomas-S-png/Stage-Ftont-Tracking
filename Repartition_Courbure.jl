@@ -143,36 +143,7 @@ function MAJ3(A,D0)
         A[7,i]=A[4,i]
     end
 end
-#=
-function MAJ3(A,D0)
-    Δ=laplacian(A, D0)
-    ΔX=A[1:2,:]*Δ'
-    κ = norm.(eachcol(ΔX))
-    A[3,:]=κ'
-    #Normale sur le vertexe (A[4:5,i])
-    #Calcul de la normale
-    n_nodes = size(A, 2)
-    for i in 1:n_nodes
-        Xi=A[1:2,i]
-        Xp=A[1:2,neighbors(i, D0)[1]]
-        Xm=A[1:2,neighbors(i, D0)[2]]
 
-        d_i  = norm(Xp - Xi)
-        d_im = norm(Xi - Xm)
-
-        t = (Xp - Xi)/d_i + (Xi - Xm)/d_im
-        t /= norm(t)
-
-        A[6:7,i]=t
-
-        n = [t[2], -t[1]]
-
-        A[4:5,i]=n
-
-    end
-    
-end
-=#
 function laplacian(A, D0)
     star1 = spzeros(size(D0,1), size(D0,1))
     inv = spzeros(size(A,2), size(A,2))
@@ -240,245 +211,6 @@ function f!(dX, X, p, t)
       # Update the error reference for convergence checking
     return nothing
 end
-
-function f2!(dX, X, p, t) #Méthode alpha et répartition selon longueur
-    A, D0 = p
-    Nloc = size(A, 2)
-
-    # Build the current geometric state from X (the actual ODE state)
-    Acur = copy(A)
-    Acur[1, :] .= view(X, 1:Nloc)
-    Acur[2, :] .= view(X, Nloc+1:2Nloc)
-    MAJ3(Acur, D0)
-
-    f=zeros(Nloc)
-    α=zeros(Nloc)
-    ell=zeros(Nloc)
-    ellstar=zeros(Nloc)
-    for i in 1:Nloc
-        ell[i]=norm(Acur[1:2,neighbors(i,D0)[1]]-Acur[1:2,i])
-    end
-
-    #Dual lenght
-    for i in 1:Nloc
-        ellstar[i]=0.5*(ell[i]+ell[neighbors(i,D0)[2]])
-    end
-    L=sum(ell)
-
-    for i in 1:Nloc
-        f[i]=(L/(Nloc*ellstar[i])-1)*ω
-    end
-    
-        
-    # compatibility correction
-    fmean = sum(f .* ellstar) / sum(ellstar)
-    f .-= fmean
-
-    for i in 1:Nloc
-        ds=norm(Acur[1:2,neighbors(i,D0)[2]]-Acur[1:2,i])
-        α[i]=α[neighbors(i,D0)[2]]+f[i]*ds
-    end
-
-
-    # remove arbitrary constant / global drift
-    alphamean = sum(α .* ellstar) / sum(ellstar)
-    α .-= alphamean
-
-    v = α .* Acur[6:7, :]'
-
-    dx = view(dX, 1:Nloc)
-    dy = view(dX, Nloc+1:2Nloc)
-
-    dx .= v[:, 1]
-    dy .= v[:, 2]
-
-    return nothing
-    
-end
-
-
-function f3!(dX, X, p, t) #Méthode laplacien et répartition selon longueur
-    A, D0 = p
-    Nloc = size(A, 2)
-
-    # Build the current geometric state from X (the actual ODE state)
-    Acur = copy(A)
-    Acur[1, :] .= view(X, 1:Nloc)
-    Acur[2, :] .= view(X, Nloc+1:2Nloc)
-    MAJ3(Acur, D0)
-    Ploc=0.0
-    Δ = laplacian(Acur, D0)
-    b = zeros(Nloc)
-    v = zeros(Nloc, 2)
-    t=zeros(2,Nloc)
-    star0 = zeros(Nloc)
-    for i in 1:Nloc
-        dist1 = norm(Acur[1:2, neighbors(i, D0)[1]] - Acur[1:2, i])
-        dist2 = norm(Acur[1:2, neighbors(i, D0)[2]] - Acur[1:2, i])
-        star0[i] = 0.5 * (dist1 + dist2)
-        Ploc += dist1
-    end
-    star1 = spzeros(size(D0,1), size(D0,1))
-    for i in 1:size(D0,1)
-        nodes = findall(!iszero, D0[i,:])
-        dist = norm(Acur[1:2, nodes[1]] - Acur[1:2, nodes[2]])
-        star1[i,i] = 1 / max(dist, 1e-14)
-
-        t[:,i]=[Acur[1,neighbors(i, D0)[1]]-Acur[1,i] , Acur[2,neighbors(i, D0)[1]]-Acur[2,i]]
-        t[:,i]/=norm(t[:,i])
-        
-    end
-    for i in 1:Nloc
-        b[i] = (Ploc/ Nloc / star0[i] - 1) * ω
-    end
-    bmean = sum(b .* star0) / sum(star0)
-    b .-= bmean
-    Δ[1,:].=0
-    Δ[1,1]=1
-    b[1]=0
-
-    Ψ=Δ\b 
-    w=star1*D0*Ψ #.*t' #Acur[6:7, :]'
-    #v=star1*D0*Ψ.*Acur[6:7, :]' #.*t'
-    #
-    for i in 1:Nloc
-        v[i, :] = -0.5*(w[i]+w[neighbors(i, D0)[2]])* Acur[6:7, i]
-    end
-    #
-
-    dx = view(dX, 1:Nloc)
-    dy = view(dX, Nloc+1:2Nloc)
-
-    dx .= v[:, 1]
-    dy .= v[:, 2]
-
-    # Update A with new positions for next recomputation
-    #A[1, :] .= x
-    #A[2, :] .= y
-
-      # Update the error reference for convergence checking
-    return nothing
-end
-
-function f4!(dX, X, p, t) #Redistribution des points en utilisant la mean curvature flow method
-
-    A, D0 = p
-    Nloc = size(A, 2)
-
-    # Build the current geometric state from X (the actual ODE state)
-    Acur = copy(A)
-    Acur[1, :] .= view(X, 1:Nloc)
-    Acur[2, :] .= view(X, Nloc+1:2Nloc)
-    MAJ3(Acur, D0)
-    Δ=laplacian(Acur, D0)
-    f=zeros(Nloc)
-    α=zeros(Nloc)
-    ell=zeros(Nloc)
-    ellstar=zeros(Nloc)
-    for i in 1:Nloc
-        ell[i]=norm(Acur[1:2,neighbors(i,D0)[1]]-Acur[1:2,i])
-    end
-
-    #Dual lenght
-    for i in 1:Nloc
-        ellstar[i]=0.5*(ell[i]+ell[neighbors(i,D0)[2]])
-    end
-    L=sum(ell)
-
-    for i in 1:Nloc
-        f[i]=(L/(Nloc*ellstar[i])-1)*ω
-    end
-
-        
-    # compatibility correction
-    fmean = sum(f .* ellstar) / sum(ellstar)
-    f .-= fmean
-
-    for i in 1:Nloc
-        ds=norm(Acur[1:2,neighbors(i,D0)[2]]-Acur[1:2,i])
-        α[i]=α[neighbors(i,D0)[2]]+f[i]*ds
-    end
-
-
-    # remove arbitrary constant / global drift
-    alphamean = sum(α .* ellstar) / sum(ellstar)
-    α .-= alphamean
-
-    v = α .* Acur[6:7, :]'
-    κ_avg = mean(Acur[3, :]).*Acur[4:5, :]' #Vecteur de courbure moyenne moyenne sur les points
-    κ =Δ * Acur[1:2,:]' #Vecteur de courbure à chaque point
-    v=v- κ- κ_avg #+ κ' #Déplacement de la mean curvature flow method
-
-
-    dx = view(dX, 1:Nloc)
-    dy = view(dX, Nloc+1:2Nloc)
-
-    dx .= v[:, 1]
-    dy .= v[:, 2]
-
-    return nothing
-        
-
-
-end
-
-function f5!(dX, X, p, t) #Méthode alpha et répartition selon longueur et courbure
-    A, D0 = p
-    Nloc = size(A, 2)
-
-    # Build the current geometric state from X (the actual ODE state)
-    Acur = copy(A)
-    Acur[1, :] .= view(X, 1:Nloc)
-    Acur[2, :] .= view(X, Nloc+1:2Nloc)
-    MAJ3(Acur, D0)
-    
-    f=zeros(Nloc)
-    α=zeros(Nloc)
-    ell=zeros(Nloc)
-    ellstar=zeros(Nloc)
-    ρ=zeros(Nloc)
-    for i in 1:Nloc
-        ell[i]=norm(Acur[1:2,neighbors(i,D0)[1]]-Acur[1:2,i])
-    end
-    L=sum(ell)
-    #Dual lenght
-    for i in 1:Nloc
-        ellstar[i]=0.5*(ell[i]+ell[neighbors(i,D0)[2]])
-        ρ[i]=1+β*(Acur[3,i]/mean(Acur[3, :]))^γ
-    end
-
-
-    for i in 1:Nloc
-        f[i]=ω*((sum(ellstar.*ρ))/(Nloc*ellstar[i]*ρ[i])-1)
-    end
-    
-        
-    # compatibility correction
-    fmean = sum(f .* ellstar) / sum(ellstar)
-    f .-= fmean
-
-    for i in 1:Nloc
-        ds=norm(Acur[1:2,neighbors(i,D0)[2]]-Acur[1:2,i])
-        α[i]=α[neighbors(i,D0)[2]]+f[i]*ds
-    end
-
-
-    # remove arbitrary constant / global drift
-    alphamean = sum(α .* ellstar) / sum(ellstar)
-    α .-= alphamean
-
-    v = α .* Acur[6:7, :]'
-
-    dx = view(dX, 1:Nloc)
-    dy = view(dX, Nloc+1:2Nloc)
-
-    dx .= v[:, 1]
-    dy .= v[:, 2]
-
-    return nothing
-    
-end
-
 
 
 function f6!(dX, X, p, t) #Méthode utilisant le laplacien et répartition selon longueur et courbure
@@ -573,10 +305,10 @@ function compute_b_norm(Acur, D0)#, ω)
     return maximum(abs.(b))
 end
 
-x_o=0.5   #Centre du cercle
+x_o=0.5   #Centre du cercle / ellipse
 y_o=0.75
 
-a=.15 #a=.30 pour ellipse, a=b pour cercle
+a=.30 
 b=.15
 N=64
 h=(a-b)^2/(a+b)^2
@@ -661,67 +393,19 @@ for i in 1:N
     D0[i,mod1(i+1,N)]=1
     D0[i,i]=-1
 end
-savefig(p,"Image/Cercle_Stretch/Debut N=64 dt=1e-5")
-changement=0
+savefig(p,"Image/Repartition_Courbure/Debut N=64 dt=1e-5")
+
 
 println("Début de la répartition")
-#=
-tol_b = .1 #valeur de tolérance ou critère de convergence à vérifier et modifié si besoin
-nt = 0
-@time while true
-    local dt = 1e-5
-    global nt += 1
-    local X0 = vcat(A[1,:], A[2,:])
-    local prob = ODEProblem(f3!, X0, (0.0, dt), (A, D0))
-    local sol = solve(prob, Euler(), abstol=1e-8, reltol=1e-8, dt=dt)
 
-    local Xf = sol.u[end]
-    A[1,:] .= view(Xf, 1:N)
-    A[2,:] .= view(Xf, N+1:2N)
-    MAJ3(A,D0)
-
-    # Compute convergence measure from the redistribution RHS (b)
-    b_norm = compute_b_norm(A, D0)
-    
-    if nt == 1
-        global b_norm_initial = b_norm*ω
-        println("Initial b_norm: ", b_norm_initial)
-    end
-    if b_norm*ω <0.1*b_norm_initial
-        global ω*=1.1
-    end
-    if nt % 500 == 0
-        p3 = scatter(A[1,:], A[2,:], aspect_ratio=1, label=false)
-        display(p3)
-        println("Iteration ", nt, ": b_norm=", b_norm)
-    end
-
-    # Stop when redistribution forcing is small
-    if b_norm < tol_b
-        println("Converged: b_norm=", b_norm, " at iteration ", nt)
-        break
-    end
-
-    # Optional diagnostic: compute uniformity (kept for information only)
-    arc_lengths = zeros(N)
-    for i in 1:N
-        j = neighbors(i, D0)[1]
-        arc_lengths[i] = sqrt((A[1,j]-A[1,i])^2 + (A[2,j]-A[2,i])^2)
-    end
-    mean_arc = mean(arc_lengths)
-    std_arc = std(arc_lengths)
-    uniformity = std_arc / mean_arc
-    
-end
-=#
 uniformity = 1.0
 nt=0
-#anim=Animation()
+anim=Animation()
 @time while uniformity>0.05#for t in 1:1e5
     local dt=1e-5
     global nt+=1
     local X0 = vcat(A[1,:], A[2,:])
-    local prob = ODEProblem(f3!, X0, (0.0, dt), (A, D0))
+    local prob = ODEProblem(f6!, X0, (0.0, dt), (A, D0))
     local sol=solve(prob,Euler(),abstol=1e-8,reltol=1e-8,dt=dt)
 
     local Xf = sol.u[end]
@@ -731,7 +415,7 @@ nt=0
      if nt % 500 == 0
         p3=scatter(A[1,:],A[2,:],aspect_ratio=1,label=false)
         display(p3)
-        #frame(anim)
+        frame(anim)
      end
 
     # Compute arc lengths for uniformity check
@@ -750,7 +434,7 @@ end
 
 println("Nombre d'itérations : ", nt)
 #
-#gif(anim,"Image/Animation/Repartition/Rosenbrock.gif",fps=60)
+gif(anim,"Image/Repartition_Courbure/Repartition.gif",fps=60)
 
 
 
@@ -843,4 +527,4 @@ println("E_Forme : ", dist)
 @printf("E_inf : %.5e\n", E_inf)
 p4 = scatter(A[1,:], A[2,:],aspect_ratio=1,label="Marqueurs")
 display(p4)
-savefig(p4,"Image/Cercle_Stretch/Fin N=64 dt=1e-5")
+savefig(p4,"Image/Repartition_Courbure/Fin N=64 dt=1e-5")
